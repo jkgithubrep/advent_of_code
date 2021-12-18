@@ -1,25 +1,73 @@
 const fs = require("fs");
 const path = require("path");
 
-const minCost = (map) => {
-  const costs = [...new Array(map.length)].map(() =>
-    new Array(map[0].length).fill(0)
-  );
+const isInsideMap = (x, y, map) => {
+  return x >= 0 && x < map[0].length && y >= 0 && y < map.length;
+};
 
-  for (let x = 1; x < map[0].length; x++) {
-    costs[0][x] = costs[0][x - 1] + map[0][x];
-  }
-
-  for (let y = 1; y < map.length; y++) {
-    costs[y][0] = costs[y - 1][0] + map[y][0];
-  }
-
-  for (y = 1; y < map.length; y++) {
-    for (x = 1; x < map[0].length; x++) {
-      costs[y][x] = Math.min(costs[y][x - 1], costs[y - 1][x]) + map[y][x];
+const getUnvisitedNeighbours = (x, y, map, visited) => {
+  const offsets = [
+    [-1, 0],
+    [1, 0],
+    [0, -1],
+    [0, 1],
+  ];
+  const neighbours = [];
+  for (let [dx, dy] of offsets) {
+    const [nx, ny] = [x + dx, y + dy];
+    if (isInsideMap(nx, ny, map) && !visited.has(`${nx}-${ny}`)) {
+      neighbours.push([nx, ny]);
     }
   }
-  return costs[map.length - 1][map[0].length - 1];
+  return neighbours;
+};
+
+const next = (costs, visited) => {
+  const visitedKeys = [...visited.values()];
+  console.log("Visited:", visitedKeys);
+  const costsUnvisited = [...costs.entries()].filter(
+    ([key]) => !visitedKeys.includes(key)
+  );
+  console.log("Costs unvisited:", costsUnvisited);
+  const costsOrdered = [...costsUnvisited].sort(
+    ([, val1], [, val2]) => val1 - val2
+  );
+  console.log("Costs ordered:", costsOrdered);
+  if (!costsOrdered.length) return [];
+  const [key] = costsOrdered[0];
+  return key.split("-").map((val) => parseInt(val, 10));
+};
+
+const updateCosts = (x, y, unvisitedNeighbours, map, costs) => {
+  const distStartToCurrent = costs.get(`${x}-${y}`);
+  for (let [x, y] of unvisitedNeighbours) {
+    const key = `${x}-${y}`;
+    const distStartToNeighbour = distStartToCurrent + map[y][x];
+    const currentDistStartToNeighbour = costs.get(key) || Infinity;
+    if (distStartToNeighbour < currentDistStartToNeighbour) {
+      costs.set(key, distStartToNeighbour);
+      console.log(`Cost (${x}, ${y}) updated:`, distStartToNeighbour);
+    }
+  }
+};
+
+const minCost = (map) => {
+  const costs = new Map();
+  costs.set("0-0", 0);
+  const visited = new Set();
+
+  current = [0, 0];
+  while (current.length) {
+    const [x, y] = current;
+    console.log("Current:", `(${x}, ${y})`);
+    const unvisitedNeighbours = getUnvisitedNeighbours(x, y, map, visited);
+    console.log("Unvisited neighbours:", unvisitedNeighbours);
+    updateCosts(x, y, unvisitedNeighbours, map, costs);
+    visited.add(`${x}-${y}`);
+    current = next(costs, visited);
+  }
+
+  return costs.get(`${map[0].length - 1}-${map.length - 1}`);
 };
 
 const generateBiggerMap = (map) => {
@@ -40,13 +88,12 @@ const generateBiggerMap = (map) => {
 };
 
 try {
-  const data = fs.readFileSync(path.join(__dirname, "input.txt"), "utf8");
+  const data = fs.readFileSync(path.join(__dirname, "input-test.txt"), "utf8");
   const map = data
     .split("\n")
     .filter(Boolean)
     .map((row) => [...row].map((val) => parseInt(val, 10)));
   const biggerMap = generateBiggerMap(map);
-  const biggerMapStringify = biggerMap.map((row) => row.join("")).join("\n");
   const result = minCost(biggerMap);
   console.log(result);
 } catch (error) {

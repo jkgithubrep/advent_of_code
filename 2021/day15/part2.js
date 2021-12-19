@@ -22,23 +22,16 @@ const getUnvisitedNeighbours = (x, y, map, visited) => {
   return neighbours;
 };
 
-const next = (costs, visited) => {
-  const visitedKeys = [...visited.values()];
-  console.log("Visited:", visitedKeys);
-  const costsUnvisited = [...costs.entries()].filter(
-    ([key]) => !visitedKeys.includes(key)
+const getNext = (nexts) => {
+  const nextsOrdered = [...nexts.entries()].sort(
+    ([, valA], [, valB]) => valA - valB
   );
-  console.log("Costs unvisited:", costsUnvisited);
-  const costsOrdered = [...costsUnvisited].sort(
-    ([, val1], [, val2]) => val1 - val2
-  );
-  console.log("Costs ordered:", costsOrdered);
-  if (!costsOrdered.length) return [];
-  const [key] = costsOrdered[0];
+  const [key] = nextsOrdered[0];
+  nexts.delete(key);
   return key.split("-").map((val) => parseInt(val, 10));
 };
 
-const updateCosts = (x, y, unvisitedNeighbours, map, costs) => {
+const updateCosts = (x, y, unvisitedNeighbours, map, costs, nexts) => {
   const distStartToCurrent = costs.get(`${x}-${y}`);
   for (let [x, y] of unvisitedNeighbours) {
     const key = `${x}-${y}`;
@@ -46,8 +39,8 @@ const updateCosts = (x, y, unvisitedNeighbours, map, costs) => {
     const currentDistStartToNeighbour = costs.get(key) || Infinity;
     if (distStartToNeighbour < currentDistStartToNeighbour) {
       costs.set(key, distStartToNeighbour);
-      console.log(`Cost (${x}, ${y}) updated:`, distStartToNeighbour);
     }
+    nexts.set(key, costs.get(key));
   }
 };
 
@@ -55,16 +48,13 @@ const minCost = (map) => {
   const costs = new Map();
   costs.set("0-0", 0);
   const visited = new Set();
-
-  current = [0, 0];
-  while (current.length) {
-    const [x, y] = current;
-    console.log("Current:", `(${x}, ${y})`);
-    const unvisitedNeighbours = getUnvisitedNeighbours(x, y, map, visited);
-    console.log("Unvisited neighbours:", unvisitedNeighbours);
-    updateCosts(x, y, unvisitedNeighbours, map, costs);
+  const nexts = new Map();
+  nexts.set("0-0", 0);
+  while (nexts.size) {
+    const [x, y] = getNext(nexts);
     visited.add(`${x}-${y}`);
-    current = next(costs, visited);
+    const unvisitedNeighbours = getUnvisitedNeighbours(x, y, map, visited);
+    updateCosts(x, y, unvisitedNeighbours, map, costs, nexts);
   }
 
   return costs.get(`${map[0].length - 1}-${map.length - 1}`);
@@ -88,14 +78,14 @@ const generateBiggerMap = (map) => {
 };
 
 try {
-  const data = fs.readFileSync(path.join(__dirname, "input-test.txt"), "utf8");
+  const data = fs.readFileSync(path.join(__dirname, "input.txt"), "utf8");
   const map = data
     .split("\n")
     .filter(Boolean)
     .map((row) => [...row].map((val) => parseInt(val, 10)));
   const biggerMap = generateBiggerMap(map);
   const result = minCost(biggerMap);
-  console.log(result);
+  console.log("result:", result);
 } catch (error) {
   console.log(error);
 }
